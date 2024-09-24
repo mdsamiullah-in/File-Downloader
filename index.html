@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="utf-8">
+    <title>Image Downloader with Preview</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+    href="https://cdn.jsdelivr.net/npm/remixicon@4.3.0/fonts/remixicon.css"
+    rel="stylesheet"
+/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">      
+</head>
+<body>
+    <div class="wrapper">
+        <form>
+            <div class="header">
+                <span><p>Image Downloader</p><i class="ri-global-line"></i></span>
+                <input type="url" id="file-url" placeholder="Paste image URL" required>
+            </div>
+           
+            <div class="input-group widthBox">
+                <input type="number" id="width" placeholder="Width ">
+                <input type="number" id="height" placeholder="Height">
+            </div>
+
+            <div class="selectBox">
+                <div class="input-group">
+                    <select id="file-type">
+                        <option>File type</option>
+                        <option value="png">PNG</option>
+                        <option value="jpg">JPG</option>
+                        <option value="jpeg">JPEG</option>
+                    </select>
+                </div>
+      
+                <div class="input-group">
+                    <select id="download-type">
+                        <option value="original">Original</option>
+                        <option value="resized">Resized</option>
+                    </select>
+                </div>
+            </div>
+
+
+                      <div class="input-group quality" id="quality-control">
+                <label for="quality">Quality (1-100 for JPG/JPEG):</label>
+                <input type="number" id="quality" min="1" max="100" placeholder="100">
+            </div>
+
+            <button type="button" id="download-btn">Download File</button>
+        </form>
+
+        <div class="image-preview-wrapper">
+            <img id="image-preview" src="" alt="">
+        </div>
+
+        <div class="progress-wrapper">
+            <div class="progress-bar">
+                <div class="progress"></div>
+            </div>
+            <div class="progress-text">0%</div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file-url');
+        const downloadBtn = document.getElementById('download-btn');
+        const widthInput = document.getElementById('width');
+        const heightInput = document.getElementById('height');
+        const fileTypeSelect = document.getElementById('file-type');
+        const qualityInput = document.getElementById('quality');
+        const qualityControl = document.getElementById('quality-control');
+        const progressWrapper = document.querySelector('.progress-wrapper');
+        const progressBar = document.querySelector('.progress');
+        const progressText = document.querySelector('.progress-text');
+        const imagePreview = document.getElementById('image-preview');
+
+        // Show/Hide quality input for JPG/JPEG
+        fileTypeSelect.addEventListener('change', () => {
+            qualityControl.style.display = (fileTypeSelect.value === 'jpg' || fileTypeSelect.value === 'jpeg') ? 'block' : 'none';
+        });
+
+        // Show preview immediately after URL is typed
+        fileInput.addEventListener('input', () => {
+            const url = fileInput.value.trim();
+            if (url) {
+                showImagePreview(url);
+            } else {
+                imagePreview.style.display = 'none';
+            }
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const url = fileInput.value.trim();
+            if (url) {
+                downloadImage(url);
+            } else {
+                alert('Please enter a valid URL.');
+            }
+        });
+
+        function showImagePreview(url) {
+            imagePreview.src = url;
+            imagePreview.style.display = 'block';
+            imagePreview.onload = () => {};
+            imagePreview.onerror = () => {
+                alert('Failed to load image. Please check the URL.');
+                imagePreview.style.display = 'none';
+            };
+        }
+
+        function downloadImage(url) {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            xhr.responseType = 'blob';
+
+            xhr.onprogress = function(event) {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    progressWrapper.style.display = 'block';
+                    progressBar.style.width = percentComplete + '%';
+                    progressText.innerText = percentComplete + '%';
+                }
+            };
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const blob = xhr.response;
+                    const img = new Image();
+                    img.src = URL.createObjectURL(blob);
+
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+
+                        // Resize if necessary
+                        if (document.getElementById('download-type').value === 'resized') {
+                            const width = widthInput.value || img.width;
+                            const height = heightInput.value || img.height;
+                            canvas.width = width;
+                            canvas.height = height;
+                            ctx.drawImage(img, 0, 0, width, height);
+                        } else {
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                        }
+
+                        // Set quality for JPG/JPEG
+                        const qualityValue = qualityInput.value && (fileTypeSelect.value === 'jpg' || fileTypeSelect.value === 'jpeg') ? qualityInput.value / 100 : 1.0;
+                        const dataUrl = canvas.toDataURL(`image/${fileTypeSelect.value}`, qualityValue);
+                        const link = document.createElement('a');
+                        link.href = dataUrl;
+                        link.download = `downloaded_image.${fileTypeSelect.value}`;
+                        document.body.appendChild(link);  // Append link to body to work in some browsers
+                        link.click();
+                        document.body.removeChild(link);  // Remove link after clicking
+                        URL.revokeObjectURL(link.href);
+                    };
+
+                    xhr.onloadend = function() {
+                        progressWrapper.style.display = 'none';
+                    };
+                } else {
+                    alert('Failed to download image. Please check the URL.');
+                }
+            };
+
+            xhr.onerror = function() {
+                alert('An error occurred while downloading the image.');
+            };
+
+            xhr.send();
+        }
+    </script>
+</body>
+</html>
